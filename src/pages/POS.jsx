@@ -164,9 +164,11 @@ export default function POS() {
       
       if (isMobile) {
         // Use Point of Sale API for mobile web transactions
+        console.log('Mobile device detected, opening Square POS...');
         initiateSquarePOSTransaction();
       } else {
         // Show payment form for desktop users
+        console.log('Desktop device detected, showing payment form...');
         setShowPaymentForm(true);
       }
       return;
@@ -205,10 +207,19 @@ export default function POS() {
   function initiateSquarePOSTransaction() {
     // Use the global openSquarePOS function from open_pos.js
     if (window.openSquarePOS) {
-      window.openSquarePOS(totalCents, 'USD');
+      console.log('Opening Square POS with amount:', totalCents);
+      try {
+        window.openSquarePOS(totalCents, 'USD');
+      } catch (error) {
+        console.error('Error opening Square POS:', error);
+        // Fallback to payment form if Square POS fails
+        setMessage('Square POS not available, please use payment form');
+        setShowPaymentForm(true);
+      }
     } else {
       console.error('openSquarePOS function not found. Make sure open_pos.js is loaded.');
-      setMessage('Square POS integration not available');
+      setMessage('Square POS integration not available, please use payment form');
+      setShowPaymentForm(true);
     }
   }
 
@@ -713,30 +724,32 @@ export default function POS() {
           {submitting ? 'Processing Payment...' : 'Complete Order'}
         </button>
 
-        {/* Square POS Button */}
-        <button 
-          disabled={cart.length === 0} 
-          onClick={() => window.openSquarePOS && window.openSquarePOS(totalCents, 'USD')}
-          style={{ 
-            width: '100%', 
-            padding: '16px', 
-            background: cart.length === 0 
-              ? '#9ca3af' 
-              : '#00d4aa', 
-            color: '#ffffff', 
-            border: 'none', 
-            borderRadius: '12px', 
-            fontSize: '18px', 
-            fontWeight: '700',
-            cursor: cart.length === 0 
-              ? 'not-allowed' 
-              : 'pointer',
-            transition: 'all 0.2s',
-            marginBottom: '12px'
-          }}
-        >
-          Start Square Transaction
-        </button>
+        {/* Square POS Button - Mobile Only */}
+        {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
+          <button 
+            disabled={cart.length === 0} 
+            onClick={() => window.openSquarePOS && window.openSquarePOS(totalCents, 'USD')}
+            style={{ 
+              width: '100%', 
+              padding: '16px', 
+              background: cart.length === 0 
+                ? '#9ca3af' 
+                : '#00d4aa', 
+              color: '#ffffff', 
+              border: 'none', 
+              borderRadius: '12px', 
+              fontSize: '18px', 
+              fontWeight: '700',
+              cursor: cart.length === 0 
+                ? 'not-allowed' 
+                : 'pointer',
+              transition: 'all 0.2s',
+              marginBottom: '12px'
+            }}
+          >
+            Start Square Transaction (Mobile)
+          </button>
+        )}
 
         {/* Compras Button and Input */}
         <div style={{ marginBottom: '12px' }}>
