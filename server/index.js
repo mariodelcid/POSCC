@@ -307,7 +307,54 @@ app.get('/api/square/locations', async (_req, res) => {
   }
 });
 
-// Square webhook for payment notifications
+// Point of Sale API callback for mobile web transactions
+app.post('/api/square/pos-callback', express.urlencoded({ extended: true }), async (req, res) => {
+  try {
+    console.log('Point of Sale callback received:', req.body);
+    
+    // Handle the transaction response from Square Point of Sale app
+    const { 
+      'com.squareup.pos.CLIENT_TRANSACTION_ID': clientTransactionId,
+      'com.squareup.pos.SERVER_TRANSACTION_ID': transactionId,
+      'com.squareup.pos.ERROR_CODE': errorCode,
+      client_transaction_id: iosClientTransactionId,
+      transaction_id: iosTransactionId,
+      error_code: iosErrorCode
+    } = req.body;
+    
+    // Determine if it's Android or iOS response
+    const isAndroid = clientTransactionId || transactionId || errorCode;
+    const isIOS = iosClientTransactionId || iosTransactionId || iosErrorCode;
+    
+    if (isAndroid) {
+      // Android response
+      if (errorCode) {
+        console.log('Android transaction failed:', errorCode);
+        res.json({ success: false, error: errorCode });
+      } else {
+        console.log('Android transaction successful:', { clientTransactionId, transactionId });
+        res.json({ success: true, clientTransactionId, transactionId });
+      }
+    } else if (isIOS) {
+      // iOS response
+      if (iosErrorCode) {
+        console.log('iOS transaction failed:', iosErrorCode);
+        res.json({ success: false, error: iosErrorCode });
+      } else {
+        console.log('iOS transaction successful:', { iosClientTransactionId, iosTransactionId });
+        res.json({ success: true, clientTransactionId: iosClientTransactionId, transactionId: iosTransactionId });
+      }
+    } else {
+      console.log('Unknown callback format:', req.body);
+      res.json({ success: false, error: 'Unknown callback format' });
+    }
+  } catch (error) {
+    console.error('Point of Sale callback error:', error);
+    res.status(500).json({ error: 'Callback processing failed' });
+  }
+});
+
+// Square webhook for payment notifications (keeping for compatibility)
 app.post('/api/square/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
     const signature = req.headers['x-square-signature'];
