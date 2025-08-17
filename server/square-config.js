@@ -3,10 +3,10 @@ dotenv.config();
 
 export const squareConfig = {
   // Square API credentials - you'll need to get these from your Square Developer Dashboard
-  accessToken: process.env.SQUARE_ACCESS_TOKEN || 'EAAAl4PphE7QgwgQVOiktL8eny84Q3JD0u88au_JNNuRGLGb_6C2l9lD6o6EGbnf',
-  environment: process.env.SQUARE_ENVIRONMENT || 'sandbox', // 'sandbox' or 'production'
-  locationId: process.env.SQUARE_LOCATION_ID || 'LF27DPP7A16EP',
-  applicationId: process.env.SQUARE_APPLICATION_ID || 'sandbox-sq0idb-oiHZXPm4ARnnaEG9ZX1MfQ',
+  accessToken: process.env.SQUARE_ACCESS_TOKEN || 'EAAAlz7uE-Cnaqdwc_hnoxdWGLKETLuC7egOgYtWZy-dC0qkJqd_mdqsQ1d5PuH7',
+  environment: process.env.SQUARE_ENVIRONMENT || 'production', // 'sandbox' or 'production'
+  locationId: process.env.SQUARE_LOCATION_ID || 'L8DKM2PC7Q1HE',
+  applicationId: process.env.SQUARE_APPLICATION_ID || 'sq0idp-PbznJFG3brzaUpfhFZD3mg',
   // Square API version - should match your dashboard
   apiVersion: '2024-12-18',
   
