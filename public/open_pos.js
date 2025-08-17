@@ -50,32 +50,36 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     // iOS - use the correct Square Point of Sale API format for iOS
     console.log('Opening Square POS for iOS (iPad/iPhone)...');
     
-    // Build the iOS URL scheme according to Square's documentation
+    // Build the iOS URL scheme according to Square's official documentation
     var posUrl = 
-      "square-commerce-v1://payment/create?data=" + 
-      encodeURIComponent(JSON.stringify({
-        callback_url: callbackUrl,
-        client_id: applicationId,
-        version: "1.3",
-        notes: "POS Transaction",
-        amount: transactionTotal,
-        currency: currencyCode,
-        options: {
-          supported_tender_types: ["CREDIT_CARD", "CASH", "OTHER", "SQUARE_GIFT_CARD", "CARD_ON_FILE"]
-        }
-      }));
+      "intent:#Intent;" +
+      "action=com.squareup.pos.action.CHARGE;" +
+      "package=com.squareup;" +
+      "S.com.squareup.pos.WEB_CALLBACK_URI=" + callbackUrl + ";" +
+      "S.com.squareup.pos.CLIENT_ID=" + applicationId + ";" +
+      "S.com.squareup.pos.API_VERSION=" + sdkVersion + ";" +
+      "i.com.squareup.pos.TOTAL_AMOUNT=" + transactionTotal + ";" +
+      "S.com.squareup.pos.CURRENCY_CODE=" + currencyCode + ";" +
+      "S.com.squareup.pos.TENDER_TYPES=com.squareup.pos.TENDER_CARD,com.squareup.pos.TENDER_CASH;" +
+      "end";
     
     console.log('iOS POS URL:', posUrl);
     
-    // Try to open the Square app
+    // Try to open the Square app using the same intent format as Android
     try {
-      window.location = posUrl;
+      window.open(posUrl);
     } catch (e) {
-      console.log('iOS Square POS failed, showing fallback...');
-      // Fallback: show instructions
-      alert('Please open the Square Point of Sale app manually and enter:\n\n' +
-            'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
-            'Or ensure Square Point of Sale app is installed on your device.');
+      console.log('iOS Square POS failed, trying alternative method...');
+      // Alternative: try direct app opening
+      try {
+        window.location = "square://";
+      } catch (e2) {
+        console.log('Both methods failed, showing fallback...');
+        // Fallback: show instructions
+        alert('Please open the Square Point of Sale app manually and enter:\n\n' +
+              'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
+              'Or ensure Square Point of Sale app is installed on your device.');
+      }
     }
     
   } else {
