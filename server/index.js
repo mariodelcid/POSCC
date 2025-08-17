@@ -258,6 +258,21 @@ app.post('/api/square/create-payment-intent', async (req, res) => {
   }
 });
 
+// Test endpoint to check if server is working
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    ok: true, 
+    message: 'Server is working!',
+    timestamp: new Date().toISOString(),
+    squareConfig: {
+      environment: squareConfig.environment,
+      hasAccessToken: !!squareConfig.accessToken,
+      hasLocationId: !!squareConfig.locationId,
+      hasApplicationId: !!squareConfig.applicationId
+    }
+  });
+});
+
 // Get available payment methods from Square
 app.get('/api/square/payment-methods', async (_req, res) => {
   try {
