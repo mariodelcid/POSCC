@@ -24,7 +24,7 @@ export const squareConfig = {
   ],
   
   // Enable mock mode for testing (set to false when you get real Square working)
-  mockMode: false
+  mockMode: true
 };
 
 // Helper function to get Square client
