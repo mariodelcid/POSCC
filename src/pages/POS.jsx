@@ -14,6 +14,13 @@ export default function POS() {
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [showPurchaseInput, setShowPurchaseInput] = useState(false);
   const [squarePaymentMethods, setSquarePaymentMethods] = useState([]);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    cardholderName: ''
+  });
 
 
   useEffect(() => {
@@ -152,8 +159,16 @@ export default function POS() {
 
   async function completeOrder() {
     if (paymentMethod === 'square') {
-      // Use Point of Sale API for mobile web transactions
-      initiateSquarePOSTransaction();
+      // Check if user is on mobile device
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // Use Point of Sale API for mobile web transactions
+        initiateSquarePOSTransaction();
+      } else {
+        // Show payment form for desktop users
+        setShowPaymentForm(true);
+      }
       return;
     }
     
@@ -223,6 +238,57 @@ export default function POS() {
       
       setMessage(`Sale ${data.saleId} complete via Square POS. Total ${centsToUSD(data.totalCents)}`);
       setCart([]);
+      // Play success sound
+      playCashDrawerSound();
+      // refresh items to show updated stock on inventory page too if needed
+      fetch('/api/items').then((r) => r.json()).then(setItems);
+    } catch (e) {
+      setMessage(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function processSquarePayment() {
+    setSubmitting(true);
+    setMessage('');
+    try {
+      // Validate payment form
+      if (!paymentFormData.cardNumber || !paymentFormData.expiryDate || !paymentFormData.cvv || !paymentFormData.cardholderName) {
+        throw new Error('Please fill in all payment fields');
+      }
+
+      // For Square payments, first create a payment intent
+      const paymentRes = await fetch('/api/square/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountCents: totalCents,
+          currency: 'USD'
+        }),
+      });
+      
+      const paymentData = await paymentRes.json();
+      if (!paymentRes.ok) throw new Error(paymentData.error || 'Payment processing failed');
+      
+      // Now create the sale record
+      const res = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cart.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
+          paymentMethod: `square_${selectedSquareMethod}`,
+          squarePaymentId: paymentData.paymentId,
+        }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to complete order');
+      
+      setMessage(`Sale ${data.saleId} complete via ${getPaymentMethodDisplayName(selectedSquareMethod)}. Total ${centsToUSD(data.totalCents)}`);
+      setCart([]);
+      setShowPaymentForm(false);
+      setPaymentFormData({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
       // Play success sound
       playCashDrawerSound();
       // refresh items to show updated stock on inventory page too if needed
@@ -782,9 +848,177 @@ export default function POS() {
             {message}
           </div>
         )}
+
+        {/* Payment Form Modal */}
+        {showPaymentForm && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '32px',
+              borderRadius: '16px',
+              width: '90%',
+              maxWidth: '500px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h2 style={{
+                margin: '0 0 24px 0',
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#1f2937',
+                textAlign: 'center'
+              }}>
+                Payment Information
+              </h2>
+              
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontWeight: '600', 
+                  color: '#374151' 
+                }}>
+                  Card Number
+                </label>
+                <input
+                  type="text"
+                  value={paymentFormData.cardNumber}
+                  onChange={(e) => setPaymentFormData(prev => ({ ...prev, cardNumber: e.target.value }))}
+                  placeholder="1234 5678 9012 3456"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '16px'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    marginBottom: '8px', 
+                    fontWeight: '600', 
+                    color: '#374151' 
+                  }}>
+                    Expiry Date
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentFormData.expiryDate}
+                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                    placeholder="MM/YY"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    marginBottom: '8px', 
+                    fontWeight: '600', 
+                    color: '#374151' 
+                  }}>
+                    CVV
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentFormData.cvv}
+                    onChange={(e) => setPaymentFormData(prev => ({ ...prev, cvv: e.target.value }))}
+                    placeholder="123"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontWeight: '600', 
+                  color: '#374151' 
+                }}>
+                  Cardholder Name
+                </label>
+                <input
+                  type="text"
+                  value={paymentFormData.cardholderName}
+                  onChange={(e) => setPaymentFormData(prev => ({ ...prev, cardholderName: e.target.value }))}
+                  placeholder="John Doe"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '16px'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  onClick={processSquarePayment}
+                  disabled={submitting}
+                  style={{ 
+                    flex: 1,
+                    padding: '16px', 
+                    background: submitting ? '#9ca3af' : '#10b981', 
+                    color: '#ffffff', 
+                    border: 'none', 
+                    borderRadius: '8px', 
+                    fontSize: '16px', 
+                    fontWeight: '600',
+                    cursor: submitting ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {submitting ? 'Processing...' : `Pay ${centsToUSD(totalCents)}`}
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowPaymentForm(false);
+                    setPaymentFormData({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
+                  }}
+                  style={{ 
+                    padding: '16px 24px', 
+                    background: '#6b7280', 
+                    color: '#ffffff', 
+                    border: 'none', 
+                    borderRadius: '8px', 
+                    fontSize: '16px', 
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-
     </div>
   );
 }
