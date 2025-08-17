@@ -228,7 +228,18 @@ export default function POS() {
   function openSquareWebPayment() {
     // Show the real Square payment form for desktop users
     console.log('Opening real Square payment form...');
+    console.log('Setting showPaymentForm to true');
     setShowPaymentForm(true);
+    console.log('showPaymentForm state after set:', showPaymentForm);
+    
+    // Force a re-render to make sure the modal shows
+    setTimeout(() => {
+      console.log('showPaymentForm state after timeout:', showPaymentForm);
+      if (!showPaymentForm) {
+        console.log('Payment form still not showing, forcing re-render...');
+        setShowPaymentForm(true);
+      }
+    }, 100);
   }
 
 
@@ -898,6 +909,7 @@ export default function POS() {
         )}
 
         {/* Payment Form Modal */}
+        {console.log('Rendering payment form check - showPaymentForm:', showPaymentForm)}
         {showPaymentForm && (
           <div style={{
             position: 'fixed',
