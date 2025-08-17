@@ -3,10 +3,12 @@ dotenv.config();
 
 export const squareConfig = {
   // Square API credentials - you'll need to get these from your Square Developer Dashboard
-  accessToken: process.env.SQUARE_ACCESS_TOKEN || 'EAAAlkrFmCEiopQMWRwDBQAfM0gT8THVZHecNeZBTF359oKYFa1_QVBZCljCVzAc',
-  environment: process.env.SQUARE_ENVIRONMENT || 'production', // 'sandbox' or 'production'
-  locationId: process.env.SQUARE_LOCATION_ID || 'L8DKM2PC7Q1HE',
-  applicationId: process.env.SQUARE_APPLICATION_ID || 'sq0idp-PbznJFG3brzaUpfhFZD3mg',
+  accessToken: process.env.SQUARE_ACCESS_TOKEN || 'EAAAl4PphE7QgwgQVOiktL8eny84Q3JD0u88au_JNNuRGLGb_6C2l9lD6o6EGbnf',
+  environment: process.env.SQUARE_ENVIRONMENT || 'sandbox', // 'sandbox' or 'production'
+  locationId: process.env.SQUARE_LOCATION_ID || 'LF27DPP7A16EP',
+  applicationId: process.env.SQUARE_APPLICATION_ID || 'sandbox-sq0idb-oiHZXPm4ARnnaEG9ZX1MfQ',
+  // Square API version - should match your dashboard
+  apiVersion: '2024-12-18',
   
   // Webhook endpoint for payment notifications
   webhookUrl: process.env.SQUARE_WEBHOOK_URL || 'http://localhost:3000/api/square/webhook',
@@ -22,7 +24,7 @@ export const squareConfig = {
   ],
   
   // Enable mock mode for testing (set to false when you get real Square working)
-  mockMode: true
+  mockMode: false
 };
 
 // Helper function to get Square client
@@ -71,5 +73,6 @@ export async function getSquareClient() {
   return new square.SquareClient({
     accessToken: squareConfig.accessToken,
     environment: squareConfig.environment === 'production' ? square.SquareEnvironment.Production : square.SquareEnvironment.Sandbox,
+    userAgentDetail: `POSCC/${squareConfig.apiVersion}`,
   });
 }
