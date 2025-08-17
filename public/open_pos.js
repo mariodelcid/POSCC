@@ -67,17 +67,16 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     
     window.location = posUrl;
   } else {
-    // For desktop browsers, try to open Square web checkout
-    console.log('Desktop browser detected, trying Square web checkout...');
+    // For desktop browsers, show a message about Square POS requirements
+    console.log('Desktop browser detected - Square POS requires mobile device or Square app');
     
-    // Try to open Square's web-based payment interface
-    var squareWebUrl = "https://checkout.squareup.com/v2/checkout" +
-      "?client_id=" + applicationId +
-      "&amount=" + transactionTotal +
-      "&currency=" + currencyCode +
-      "&callback_url=" + encodeURIComponent(callbackUrl);
-    
-    window.open(squareWebUrl, '_blank');
+    // Show user-friendly message about Square POS requirements
+    alert('Square Point of Sale requires a mobile device with the Square app installed.\n\n' +
+          'Please use:\n' +
+          '• Android device with Square Point of Sale app\n' +
+          '• iPad/iPhone with Square Point of Sale app\n' +
+          '• Or install Square Point of Sale on your computer\n\n' +
+          'Amount: $' + (transactionTotal/100).toFixed(2));
   }
 }
 
