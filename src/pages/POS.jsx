@@ -365,7 +365,12 @@ export default function POS() {
   const quickTenderAmounts = [5, 10, 20, 50, 100];
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: 'calc(100vh - 60px)', gap: 0 }}>
+          <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: window.innerWidth < 768 ? '1fr' : '1fr 1fr', 
+        height: 'calc(100vh - 60px)', 
+        gap: 0 
+      }}>
       {/* Left Side - All Items (Scrollable) */}
       <div style={{ 
         display: 'flex', 
@@ -405,7 +410,7 @@ export default function POS() {
               {/* Items Grid for this category */}
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(4, 1fr)', 
+                gridTemplateColumns: window.innerWidth < 768 ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', 
                 gap: '12px' 
               }}>
                 {list.map((it) => {
@@ -481,9 +486,10 @@ export default function POS() {
         display: 'flex', 
         flexDirection: 'column', 
         backgroundColor: '#f8fafc',
-        padding: '20px',
+        padding: window.innerWidth < 768 ? '12px' : '20px',
         height: '100%',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        minHeight: window.innerWidth < 768 ? 'auto' : '100%'
       }}>
         {/* Header */}
         <div style={{ 
@@ -538,7 +544,7 @@ export default function POS() {
               {cart.map((l) => (
                 <div key={l.itemId} style={{ 
                   display: 'grid', 
-                  gridTemplateColumns: '1fr auto auto auto auto', 
+                  gridTemplateColumns: window.innerWidth < 768 ? '1fr auto auto' : '1fr auto auto auto auto', 
                   gap: '12px', 
                   alignItems: 'center',
                   padding: '12px',
@@ -705,20 +711,23 @@ export default function POS() {
           onClick={completeOrder} 
           style={{ 
             width: '100%', 
-            padding: '20px', 
+            padding: window.innerWidth < 768 ? '16px' : '20px', 
             background: cart.length === 0 || submitting 
               ? '#9ca3af' 
               : '#059669', 
             color: '#ffffff', 
             border: 'none', 
             borderRadius: '12px', 
-            fontSize: '20px', 
+            fontSize: window.innerWidth < 768 ? '18px' : '20px', 
             fontWeight: '700',
             cursor: cart.length === 0 || submitting 
               ? 'not-allowed' 
               : 'pointer',
             transition: 'all 0.2s',
-            marginBottom: '12px'
+            marginBottom: '12px',
+            position: 'sticky',
+            bottom: '0',
+            zIndex: 10
           }}
         >
           {submitting ? 'Processing Payment...' : 'Complete Order'}
@@ -859,6 +868,22 @@ export default function POS() {
             textAlign: 'center'
           }}>
             {message}
+          </div>
+        )}
+
+        {/* Mobile Debug Info */}
+        {window.innerWidth < 768 && (
+          <div style={{ 
+            marginTop: '16px', 
+            padding: '12px',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #0ea5e9',
+            borderRadius: '8px',
+            color: '#0369a1',
+            fontSize: '14px',
+            textAlign: 'center'
+          }}>
+            Mobile View - Cart Items: {cart.length} | Total: {centsToUSD(totalCents)}
           </div>
         )}
 
