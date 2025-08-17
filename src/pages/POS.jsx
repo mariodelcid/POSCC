@@ -62,6 +62,11 @@ export default function POS() {
     };
   }, []);
 
+  // Debug useEffect to monitor showPaymentForm state
+  useEffect(() => {
+    console.log('showPaymentForm state changed to:', showPaymentForm);
+  }, [showPaymentForm]);
+
   const grouped = useMemo(() => {
     const map = new Map();
     for (const it of items) {
@@ -169,7 +174,9 @@ export default function POS() {
       } else {
         // Show payment form for desktop users
         console.log('Desktop device detected, showing payment form...');
+        console.log('Setting showPaymentForm to true');
         setShowPaymentForm(true);
+        console.log('showPaymentForm state:', showPaymentForm);
       }
       return;
     }
