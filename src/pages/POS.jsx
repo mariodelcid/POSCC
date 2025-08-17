@@ -28,6 +28,31 @@ export default function POS() {
         }
       })
       .catch((err) => console.error('Failed to fetch payment methods:', err));
+    
+    // Listen for Square transaction results from callback page
+    const handleSquareMessage = (event) => {
+      if (event.data && event.data.type === 'square_transaction_result') {
+        const transactionInfo = event.data.data;
+        
+        // Check if transaction was successful
+        const isSuccess = !transactionInfo['com.squareup.pos.ERROR_CODE'] && !transactionInfo.error_code;
+        
+        if (isSuccess) {
+          // Create the sale record
+          createSaleRecord(transactionInfo);
+        } else {
+          // Handle error
+          const errorCode = transactionInfo['com.squareup.pos.ERROR_CODE'] || transactionInfo.error_code;
+          setMessage(`Transaction failed: ${errorCode}`);
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleSquareMessage);
+    
+    return () => {
+      window.removeEventListener('message', handleSquareMessage);
+    };
   }, []);
 
   const grouped = useMemo(() => {
@@ -169,6 +194,43 @@ export default function POS() {
     } else {
       console.error('openSquarePOS function not found. Make sure open_pos.js is loaded.');
       setMessage('Square POS integration not available');
+    }
+  }
+
+  async function createSaleRecord(transactionInfo) {
+    setSubmitting(true);
+    setMessage('');
+    
+    try {
+      // Get transaction IDs
+      const clientTransactionId = transactionInfo['com.squareup.pos.CLIENT_TRANSACTION_ID'] || transactionInfo.client_transaction_id;
+      const serverTransactionId = transactionInfo['com.squareup.pos.SERVER_TRANSACTION_ID'] || transactionInfo.transaction_id;
+      
+      // Create the sale record
+      const res = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cart.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
+          paymentMethod: 'square_pos',
+          squarePaymentId: serverTransactionId,
+          squareClientTransactionId: clientTransactionId,
+        }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to complete order');
+      
+      setMessage(`Sale ${data.saleId} complete via Square POS. Total ${centsToUSD(data.totalCents)}`);
+      setCart([]);
+      // Play success sound
+      playCashDrawerSound();
+      // refresh items to show updated stock on inventory page too if needed
+      fetch('/api/items').then((r) => r.json()).then(setItems);
+    } catch (e) {
+      setMessage(e.message);
+    } finally {
+      setSubmitting(false);
     }
   }
 

@@ -2,7 +2,7 @@
 // This file handles the Square Point of Sale app integration
 
 // Global variables for Square Point of Sale configuration
-var callbackUrl = window.location.origin + "/api/square/pos-callback";
+var callbackUrl = window.location.origin + "/callback.html";
 var applicationId = "sq0idp-PbznJFG3brzaUpfhFZD3mg";
 var sdkVersion = "v2.0";
 

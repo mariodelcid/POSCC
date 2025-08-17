@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Square Transaction Callback</title>
+    <!-- Loads callback javascript -->
+    <script type="text/javascript" src="/callback.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+      #url {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #007bff;
+        font-family: monospace;
+        line-height: 1.6;
+      }
+      .success {
+        border-left-color: #28a745;
+      }
+      .error {
+        border-left-color: #dc3545;
+      }
+    </style>
+  </head>
+
+  <!-- Calls printResponse() when this page loads -->
+  <body onload="printResponse()">
+    <div class="container">
+      <h1>Square Transaction Result</h1>
+      <div id="url">
+        <!-- Transaction result will be displayed here -->
+        Processing transaction result...
+      </div>
+    </div>
+  </body>
+</html>
