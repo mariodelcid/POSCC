@@ -161,18 +161,9 @@ export default function POS() {
 
   async function completeOrder() {
     if (paymentMethod === 'square') {
-      // Check if user is on mobile device
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        // Use Point of Sale API for mobile web transactions
-        console.log('Mobile device detected, opening Square POS...');
-        initiateSquarePOSTransaction();
-      } else {
-        // Show Square web payment interface for desktop users
-        console.log('Desktop device detected, opening Square web payment...');
-        openSquareWebPayment();
-      }
+      // Use Square Point of Sale API for ALL devices (Android, iPad, Desktop)
+      console.log('Opening Square POS for all devices...');
+      initiateSquarePOSTransaction();
       return;
     }
     
@@ -225,22 +216,7 @@ export default function POS() {
     }
   }
 
-  function openSquareWebPayment() {
-    // Show the real Square payment form for desktop users
-    console.log('Opening real Square payment form...');
-    console.log('Setting showPaymentForm to true');
-    setShowPaymentForm(true);
-    console.log('showPaymentForm state after set:', showPaymentForm);
-    
-    // Force a re-render to make sure the modal shows
-    setTimeout(() => {
-      console.log('showPaymentForm state after timeout:', showPaymentForm);
-      if (!showPaymentForm) {
-        console.log('Payment form still not showing, forcing re-render...');
-        setShowPaymentForm(true);
-      }
-    }, 100);
-  }
+
 
 
 
@@ -754,32 +730,30 @@ export default function POS() {
           {submitting ? 'Processing Payment...' : 'Complete Order'}
         </button>
 
-        {/* Square POS Button - Mobile Only */}
-        {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
-          <button 
-            disabled={cart.length === 0} 
-            onClick={() => window.openSquarePOS && window.openSquarePOS(totalCents, 'USD')}
-            style={{ 
-              width: '100%', 
-              padding: '16px', 
-              background: cart.length === 0 
-                ? '#9ca3af' 
-                : '#00d4aa', 
-              color: '#ffffff', 
-              border: 'none', 
-              borderRadius: '12px', 
-              fontSize: '18px', 
-              fontWeight: '700',
-              cursor: cart.length === 0 
-                ? 'not-allowed' 
-                : 'pointer',
-                transition: 'all 0.2s',
-              marginBottom: '16px'
-            }}
-          >
-            Start Square Transaction (Mobile)
-          </button>
-        )}
+        {/* Square POS Button - Universal for All Devices */}
+        <button 
+          disabled={cart.length === 0} 
+          onClick={() => window.openSquarePOS && window.openSquarePOS(totalCents, 'USD')}
+          style={{ 
+            width: '100%', 
+            padding: '16px', 
+            background: cart.length === 0 
+              ? '#9ca3af' 
+              : '#00d4aa', 
+            color: '#ffffff', 
+            border: 'none', 
+            borderRadius: '12px', 
+            fontSize: '18px', 
+            fontWeight: '700',
+            cursor: cart.length === 0 
+              ? 'not-allowed' 
+              : 'pointer',
+              transition: 'all 0.2s',
+            marginBottom: '16px'
+          }}
+        >
+          Start Square Transaction (All Devices)
+        </button>
 
         {/* Compras Button and Input */}
         <div style={{ marginBottom: '12px' }}>
@@ -909,7 +883,6 @@ export default function POS() {
         )}
 
         {/* Payment Form Modal */}
-        {console.log('Rendering payment form check - showPaymentForm:', showPaymentForm)}
         {showPaymentForm && (
           <div style={{
             position: 'fixed',
