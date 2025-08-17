@@ -55,14 +55,12 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     // Desktop fallback - show payment form or redirect to Square web
     console.log('Desktop detected, redirecting to Square web payment...');
     
-    // Create a web-based payment flow for desktop
-    var squareWebUrl = "https://checkout.squareup.com/v2/checkout" +
-      "?client_id=" + applicationId +
-      "&amount=" + transactionTotal +
-      "&currency=" + currencyCode +
-      "&callback_url=" + encodeURIComponent(callbackUrl);
+    // For desktop, we'll use a different approach since Square web checkout requires more setup
+    // Let's show a message and suggest using the payment form instead
+    alert('Desktop detected! For desktop payments, please use the payment form below or test on a mobile device with the Square Point of Sale app installed.');
     
-    window.open(squareWebUrl, '_blank');
+    // Optionally, you could redirect to a payment form here
+    // window.location.href = '/payment-form';
   }
 }
 
