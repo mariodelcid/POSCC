@@ -178,7 +178,6 @@ function processWebPayment(amount, currency) {
     }
   }, 2000);
 }
-}
 
 // Make the function globally available
 window.openSquarePOS = openSquarePOS;
