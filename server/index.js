@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import { getSquareClient, squareConfig } from './square-config.js';
 
 dotenv.config();
 
@@ -108,8 +109,8 @@ app.post('/api/sales', async (req, res) => {
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'No items in sale' });
     }
-    if (!['cash', 'credit'].includes(paymentMethod)) {
-      return res.status(400).json({ error: 'Invalid payment method' });
+    if (!paymentMethod.startsWith('square_')) {
+      return res.status(400).json({ error: 'Invalid payment method - Square payments only' });
     }
 
     const itemIds = items.map((i) => i.itemId);
@@ -126,26 +127,22 @@ app.post('/api/sales', async (req, res) => {
     const taxCents = 0; // Adjust if tax required
     const totalCents = subtotalCents + taxCents;
 
-    let changeDueCents = 0;
-    if (paymentMethod === 'cash') {
-      if (typeof amountTenderedCents !== 'number') {
-        return res.status(400).json({ error: 'amountTenderedCents required for cash' });
-      }
-      if (amountTenderedCents < totalCents) {
-        return res.status(400).json({ error: 'Insufficient cash tendered' });
-      }
-      changeDueCents = amountTenderedCents - totalCents;
+    // For Square payments, we don't need cash handling
+    const { squarePaymentId } = req.body;
+    if (!squarePaymentId) {
+      return res.status(400).json({ error: 'Square payment ID required' });
     }
 
     const result = await prisma.$transaction(async (tx) => {
       const sale = await tx.sale.create({
         data: {
           paymentMethod,
+          squarePaymentId,
           subtotalCents,
           taxCents,
           totalCents,
-          amountTenderedCents: paymentMethod === 'cash' ? amountTenderedCents : null,
-          changeDueCents: paymentMethod === 'cash' ? changeDueCents : null,
+          amountTenderedCents: null,
+          changeDueCents: null,
         },
       });
 
@@ -188,7 +185,7 @@ app.post('/api/sales', async (req, res) => {
       return sale;
     });
 
-    res.json({ ok: true, saleId: result.id, totalCents, changeDueCents });
+    res.json({ ok: true, saleId: result.id, totalCents });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -224,6 +221,122 @@ app.post('/api/purchases', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// Square Payment Endpoints
+
+// Create a payment intent for Square
+app.post('/api/square/create-payment-intent', async (req, res) => {
+  try {
+    const { amountCents, currency = 'USD' } = req.body;
+    
+    if (typeof amountCents !== 'number' || amountCents <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    const client = await getSquareClient();
+    const amount = BigInt(amountCents); // Keep amount in cents as BigInt for Square
+    
+    const response = await client.payments.create({
+      sourceId: 'cnon', // This will be replaced with actual payment source ID
+      idempotencyKey: `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      amountMoney: {
+        amount: amount,
+        currency: currency
+      },
+      locationId: squareConfig.locationId,
+      note: 'POS Transaction'
+    });
+
+    res.json({
+      ok: true,
+      paymentId: response.result.payment.id,
+      status: response.result.payment.status
+    });
+  } catch (error) {
+    console.error('Square payment error:', error);
+    res.status(500).json({ error: 'Payment processing failed', details: error.message });
+  }
+});
+
+// Get available payment methods from Square
+app.get('/api/square/payment-methods', async (_req, res) => {
+  try {
+    // Return supported payment methods
+    res.json({
+      ok: true,
+      paymentMethods: squareConfig.supportedPaymentMethods.map(method => ({
+        id: method,
+        name: getPaymentMethodDisplayName(method),
+        icon: getPaymentMethodIcon(method)
+      }))
+    });
+  } catch (error) {
+    console.error('Error getting payment methods:', error);
+    res.status(500).json({ error: 'Failed to get payment methods' });
+  }
+});
+
+// Get Square locations
+app.get('/api/square/locations', async (_req, res) => {
+  try {
+    const client = await getSquareClient();
+    const response = await client.locations.list();
+    
+    res.json({
+      ok: true,
+      locations: response.result.locations || []
+    });
+  } catch (error) {
+    console.error('Error getting locations:', error);
+    res.status(500).json({ error: 'Failed to get locations', details: error.message });
+  }
+});
+
+// Square webhook for payment notifications
+app.post('/api/square/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['x-square-signature'];
+    const body = req.body;
+    
+    // Verify webhook signature (you should implement this in production)
+    // For now, we'll just log the webhook
+    
+    console.log('Square webhook received:', {
+      signature,
+      body: JSON.parse(body.toString())
+    });
+    
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// Helper functions for payment methods
+function getPaymentMethodDisplayName(method) {
+  const names = {
+    'CARD': 'Credit/Debit Card',
+    'CASH_APP_PAY': 'Cash App Pay',
+    'APPLE_PAY': 'Apple Pay',
+    'GOOGLE_PAY': 'Google Pay',
+    'SQUARE_GIFT_CARD': 'Square Gift Card',
+    'VENMO': 'Venmo'
+  };
+  return names[method] || method;
+}
+
+function getPaymentMethodIcon(method) {
+  const icons = {
+    'CARD': '💳',
+    'CASH_APP_PAY': '📱',
+    'APPLE_PAY': '🍎',
+    'GOOGLE_PAY': '🤖',
+    'SQUARE_GIFT_CARD': '🎁',
+    'VENMO': '💙'
+  };
+  return icons[method] || '💳';
+}
 
 // Serve frontend
 const __filename = fileURLToPath(import.meta.url);

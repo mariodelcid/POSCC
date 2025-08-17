@@ -7,15 +7,33 @@ function centsToUSD(cents) {
 export default function POS() {
   const [items, setItems] = useState([]);
   const [cart, setCart] = useState([]); // {itemId, name, priceCents, quantity}
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [tender, setTender] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('square');
+  const [selectedSquareMethod, setSelectedSquareMethod] = useState('CARD');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [showPurchaseInput, setShowPurchaseInput] = useState(false);
+  const [squarePaymentMethods, setSquarePaymentMethods] = useState([]);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    cardholderName: ''
+  });
 
   useEffect(() => {
     fetch('/api/items').then((r) => r.json()).then(setItems);
+    
+    // Fetch available Square payment methods
+    fetch('/api/square/payment-methods')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) {
+          setSquarePaymentMethods(data.paymentMethods);
+        }
+      })
+      .catch((err) => console.error('Failed to fetch payment methods:', err));
   }, []);
 
   const grouped = useMemo(() => {
@@ -85,8 +103,6 @@ export default function POS() {
 
   const subtotalCents = cart.reduce((s, l) => s + l.priceCents * l.quantity, 0);
   const totalCents = subtotalCents; // No tax
-  const tenderCents = Math.round(parseFloat(tender || '0') * 100);
-  const changeCents = paymentMethod === 'cash' ? Math.max(0, tenderCents - totalCents) : 0;
 
   function addToCart(item) {
     setCart((prev) => {
@@ -116,24 +132,99 @@ export default function POS() {
   }
 
   async function completeOrder() {
+    if (paymentMethod === 'square') {
+      // Show payment form for Square payments
+      setShowPaymentForm(true);
+      return;
+    }
+    
+    // Handle other payment methods if any
     setSubmitting(true);
     setMessage('');
     try {
+      // For Square payments, first create a payment intent
+      if (paymentMethod === 'square') {
+        const paymentRes = await fetch('/api/square/create-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amountCents: totalCents,
+            currency: 'USD'
+          }),
+        });
+        
+        const paymentData = await paymentRes.json();
+        if (!paymentRes.ok) throw new Error(paymentData.error || 'Payment processing failed');
+        
+        // Now create the sale record
+        const res = await fetch('/api/sales', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: cart.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
+            paymentMethod: `square_${selectedSquareMethod}`,
+            squarePaymentId: paymentData.paymentId,
+          }),
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to complete order');
+        
+        setMessage(`Sale ${data.saleId} complete via ${getPaymentMethodDisplayName(selectedSquareMethod)}. Total ${centsToUSD(data.totalCents)}`);
+        setCart([]);
+        // Play success sound
+        playCashDrawerSound();
+        // refresh items to show updated stock on inventory page too if needed
+        fetch('/api/items').then((r) => r.json()).then(setItems);
+      }
+    } catch (e) {
+      setMessage(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function processSquarePayment() {
+    setSubmitting(true);
+    setMessage('');
+    try {
+      // Validate payment form
+      if (!paymentFormData.cardNumber || !paymentFormData.expiryDate || !paymentFormData.cvv || !paymentFormData.cardholderName) {
+        throw new Error('Please fill in all payment fields');
+      }
+
+      // For Square payments, first create a payment intent
+      const paymentRes = await fetch('/api/square/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountCents: totalCents,
+          currency: 'USD'
+        }),
+      });
+      
+      const paymentData = await paymentRes.json();
+      if (!paymentRes.ok) throw new Error(paymentData.error || 'Payment processing failed');
+      
+      // Now create the sale record
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: cart.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
-          paymentMethod,
-          amountTenderedCents: paymentMethod === 'cash' ? tenderCents : undefined,
+          paymentMethod: `square_${selectedSquareMethod}`,
+          squarePaymentId: paymentData.paymentId,
         }),
       });
+      
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to complete order');
-      setMessage(`Sale ${data.saleId} complete. Total ${centsToUSD(data.totalCents)}${paymentMethod === 'cash' ? `, Change ${centsToUSD(data.changeDueCents)}` : ''}`);
+      
+      setMessage(`Sale ${data.saleId} complete via ${getPaymentMethodDisplayName(selectedSquareMethod)}. Total ${centsToUSD(data.totalCents)}`);
       setCart([]);
-      setTender('');
-      // Play cash drawer sound
+      setShowPaymentForm(false);
+      setPaymentFormData({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
+      // Play success sound
       playCashDrawerSound();
       // refresh items to show updated stock on inventory page too if needed
       fetch('/api/items').then((r) => r.json()).then(setItems);
@@ -146,7 +237,6 @@ export default function POS() {
 
   function clearCart() {
     setCart([]);
-    setTender('');
     setMessage('');
   }
 
@@ -180,7 +270,20 @@ export default function POS() {
     }
   }
 
-  // Quick tender buttons for common amounts
+  // Helper function to get payment method display name
+  function getPaymentMethodDisplayName(method) {
+    const names = {
+      'CARD': 'Credit/Debit Card',
+      'CASH_APP_PAY': 'Cash App Pay',
+      'APPLE_PAY': 'Apple Pay',
+      'GOOGLE_PAY': 'Google Pay',
+      'SQUARE_GIFT_CARD': 'Square Gift Card',
+      'VENMO': 'Venmo'
+    };
+    return names[method] || method;
+  }
+
+  // Quick tender buttons for common amounts (kept for potential future use)
   const quickTenderAmounts = [5, 10, 20, 50, 100];
 
   return (
@@ -453,7 +556,7 @@ export default function POS() {
           </div>
         </div>
 
-        {/* Payment Method */}
+        {/* Square Payment Methods */}
         <div style={{ 
           backgroundColor: '#ffffff',
           borderRadius: '12px',
@@ -462,128 +565,70 @@ export default function POS() {
           border: '1px solid #e5e7eb'
         }}>
           <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>Payment Method</h3>
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              padding: '12px 16px',
-              border: `2px solid ${paymentMethod === 'cash' ? '#2563eb' : '#e5e7eb'}`,
-              borderRadius: '8px',
-              backgroundColor: paymentMethod === 'cash' ? '#eff6ff' : '#ffffff',
-              cursor: 'pointer',
-              flex: 1,
-              justifyContent: 'center',
-              fontWeight: '500'
-            }}>
-              <input 
-                type="radio" 
-                name="pm" 
-                value="cash" 
-                checked={paymentMethod === 'cash'} 
-                onChange={() => setPaymentMethod('cash')}
-                style={{ margin: 0 }}
-              />
-              💵 Cash
+          
+          {/* Square Payment Method Selection */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+              Select Payment Method:
             </label>
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              padding: '12px 16px',
-              border: `2px solid ${paymentMethod === 'credit' ? '#2563eb' : '#e5e7eb'}`,
-              borderRadius: '8px',
-              backgroundColor: paymentMethod === 'credit' ? '#eff6ff' : '#ffffff',
-              cursor: 'pointer',
-              flex: 1,
-              justifyContent: 'center',
-              fontWeight: '500'
-            }}>
-              <input 
-                type="radio" 
-                name="pm" 
-                value="credit" 
-                checked={paymentMethod === 'credit'} 
-                onChange={() => setPaymentMethod('credit')}
-                style={{ margin: 0 }}
-              />
-              💳 Credit
-            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+              {squarePaymentMethods.map((method) => (
+                <label
+                  key={method.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '12px 16px',
+                    border: `2px solid ${selectedSquareMethod === method.id ? '#2563eb' : '#e5e7eb'}`,
+                    borderRadius: '8px',
+                    backgroundColor: selectedSquareMethod === method.id ? '#eff6ff' : '#ffffff',
+                    cursor: 'pointer',
+                    justifyContent: 'center',
+                    fontWeight: '500',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="squareMethod"
+                    value={method.id}
+                    checked={selectedSquareMethod === method.id}
+                    onChange={() => setSelectedSquareMethod(method.id)}
+                    style={{ margin: 0 }}
+                  />
+                  <span style={{ fontSize: '20px' }}>{method.icon}</span>
+                  <span>{method.name}</span>
+                </label>
+                ))}
+            </div>
           </div>
 
-          {paymentMethod === 'cash' && (
-            <div>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                  Amount Tendered:
-                </label>
-                <input 
-                  type="number" 
-                  step="0.01" 
-                  value={tender} 
-                  onChange={(e) => setTender(e.target.value)} 
-                  placeholder="0.00" 
-                  style={{ 
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '18px',
-                    fontWeight: '600'
-                  }} 
-                />
-              </div>
-              
-              {/* Quick Tender Buttons */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                {quickTenderAmounts.map(amount => (
-                  <button
-                    key={amount}
-                    onClick={() => setTender(amount.toString())}
-                    style={{
-                      padding: '8px 12px',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '6px',
-                      backgroundColor: '#ffffff',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    ${amount}
-                  </button>
-                ))}
-              </div>
-
-              {tenderCents > 0 && (
-                <div style={{ 
-                  padding: '12px',
-                  backgroundColor: changeCents >= 0 ? '#f0fdf4' : '#fef2f2',
-                  borderRadius: '8px',
-                  border: `1px solid ${changeCents >= 0 ? '#22c55e' : '#dc2626'}`,
-                  textAlign: 'center'
-                }}>
-                  <div style={{ 
-                    fontSize: '18px', 
-                    fontWeight: '700',
-                    color: changeCents >= 0 ? '#059669' : '#dc2626'
-                  }}>
-                    Change: {centsToUSD(changeCents)}
-                  </div>
-                </div>
-              )}
+          {/* Payment Method Info */}
+          <div style={{
+            padding: '12px',
+            backgroundColor: '#f8fafc',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '4px' }}>
+              Selected Payment Method
             </div>
-          )}
+            <div style={{ fontSize: '18px', fontWeight: '600', color: '#1e293b' }}>
+              {getPaymentMethodDisplayName(selectedSquareMethod)}
+            </div>
+          </div>
         </div>
 
         {/* Complete Order Button */}
         <button 
-          disabled={cart.length === 0 || submitting || (paymentMethod === 'cash' && tenderCents < totalCents)} 
+          disabled={cart.length === 0 || submitting} 
           onClick={completeOrder} 
           style={{ 
             width: '100%', 
             padding: '20px', 
-            background: cart.length === 0 || submitting || (paymentMethod === 'cash' && tenderCents < totalCents) 
+            background: cart.length === 0 || submitting 
               ? '#9ca3af' 
               : '#059669', 
             color: '#ffffff', 
@@ -591,14 +636,14 @@ export default function POS() {
             borderRadius: '12px', 
             fontSize: '20px', 
             fontWeight: '700',
-            cursor: cart.length === 0 || submitting || (paymentMethod === 'cash' && tenderCents < totalCents) 
+            cursor: cart.length === 0 || submitting 
               ? 'not-allowed' 
               : 'pointer',
             transition: 'all 0.2s',
             marginBottom: '12px'
           }}
         >
-          {submitting ? 'Processing...' : 'Complete Order'}
+          {submitting ? 'Processing Payment...' : 'Complete Order'}
         </button>
 
         {/* Compras Button and Input */}
@@ -712,6 +757,176 @@ export default function POS() {
           </div>
         )}
       </div>
+
+      {/* Payment Form Modal */}
+      {showPaymentForm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            padding: '32px',
+            borderRadius: '16px',
+            width: '90%',
+            maxWidth: '500px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h2 style={{
+              margin: '0 0 24px 0',
+              fontSize: '24px',
+              fontWeight: '700',
+              color: '#1f2937',
+              textAlign: 'center'
+            }}>
+              Payment Information
+            </h2>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '8px', 
+                fontWeight: '600', 
+                color: '#374151' 
+              }}>
+                Card Number
+              </label>
+              <input
+                type="text"
+                value={paymentFormData.cardNumber}
+                onChange={(e) => setPaymentFormData(prev => ({ ...prev, cardNumber: e.target.value }))}
+                placeholder="1234 5678 9012 3456"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontWeight: '600', 
+                  color: '#374151' 
+                }}>
+                  Expiry Date
+                </label>
+                <input
+                  type="text"
+                  value={paymentFormData.expiryDate}
+                  onChange={(e) => setPaymentFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                  placeholder="MM/YY"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '16px'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontWeight: '600', 
+                  color: '#374151' 
+                }}>
+                  CVV
+                </label>
+                <input
+                  type="text"
+                  value={paymentFormData.cvv}
+                  onChange={(e) => setPaymentFormData(prev => ({ ...prev, cvv: e.target.value }))}
+                  placeholder="123"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '16px'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '8px', 
+                fontWeight: '600', 
+                color: '#374151' 
+              }}>
+                Cardholder Name
+              </label>
+              <input
+                type="text"
+                value={paymentFormData.cardholderName}
+                onChange={(e) => setPaymentFormData(prev => ({ ...prev, cardholderName: e.target.value }))}
+                placeholder="John Doe"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '16px'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={processSquarePayment}
+                disabled={submitting}
+                style={{ 
+                  flex: 1,
+                  padding: '16px', 
+                  background: submitting ? '#9ca3af' : '#10b981', 
+                  color: '#ffffff', 
+                  border: 'none', 
+                  borderRadius: '8px', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  cursor: submitting ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {submitting ? 'Processing...' : `Pay ${centsToUSD(totalCents)}`}
+              </button>
+              <button 
+                onClick={() => {
+                  setShowPaymentForm(false);
+                  setPaymentFormData({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
+                }}
+                style={{ 
+                  padding: '16px 24px', 
+                  background: '#6b7280', 
+                  color: '#ffffff', 
+                  border: 'none', 
+                  borderRadius: '8px', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

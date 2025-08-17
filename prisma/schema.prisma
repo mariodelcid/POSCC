@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model Item {
@@ -33,11 +33,12 @@ model Sale {
   id                   Int        @id @default(autoincrement())
   createdAt            DateTime   @default(now())
   paymentMethod        String
+  squarePaymentId      String?    // Store Square payment ID for digital payments
   subtotalCents        Int
   taxCents             Int
   totalCents           Int
-  amountTenderedCents  Int?
-  changeDueCents       Int?
+  amountTenderedCents  Int?       // Keep for legacy, but won't be used for Square payments
+  changeDueCents       Int?       // Keep for legacy, but won't be used for Square payments
 
   items SaleItem[]
 }
