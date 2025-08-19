@@ -51,28 +51,30 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     console.log('Opening Square POS for iOS (iPad/iPhone)...');
     
     // Build the iOS URL scheme according to Square's official documentation
+    // iOS uses square-commerce-v1:// scheme instead of intent://
     var posUrl = 
-      "intent:#Intent;" +
-      "action=com.squareup.pos.action.CHARGE;" +
-      "package=com.squareup;" +
-      "S.com.squareup.pos.WEB_CALLBACK_URI=" + callbackUrl + ";" +
-      "S.com.squareup.pos.CLIENT_ID=" + applicationId + ";" +
-      "S.com.squareup.pos.API_VERSION=" + sdkVersion + ";" +
-      "i.com.squareup.pos.TOTAL_AMOUNT=" + transactionTotal + ";" +
-      "S.com.squareup.pos.CURRENCY_CODE=" + currencyCode + ";" +
-      "S.com.squareup.pos.TENDER_TYPES=com.squareup.pos.TENDER_CARD,com.squareup.pos.TENDER_CASH;" +
-      "end";
+      "square-commerce-v1://payment/create?" +
+      "data=" + encodeURIComponent(JSON.stringify({
+        amount_money: {
+          amount: transactionTotal,
+          currency_code: currencyCode
+        },
+        callback_url: callbackUrl,
+        client_id: applicationId,
+        version: sdkVersion,
+        tender_types: ["CARD", "CASH"]
+      }));
     
     console.log('iOS POS URL:', posUrl);
     
-    // Try to open the Square app using the same intent format as Android
+    // Try to open the Square app using iOS URL scheme
     try {
-      window.open(posUrl);
+      window.location.href = posUrl;
     } catch (e) {
       console.log('iOS Square POS failed, trying alternative method...');
       // Alternative: try direct app opening
       try {
-        window.location = "square://";
+        window.location.href = "square://";
       } catch (e2) {
         console.log('Both methods failed, showing fallback...');
         // Fallback: show instructions
@@ -98,8 +100,6 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
           '• Contact support for assistance');
   }
 }
-
-
 
 // Make the function globally available
 window.openSquarePOS = openSquarePOS;
