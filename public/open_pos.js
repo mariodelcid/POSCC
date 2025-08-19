@@ -57,42 +57,41 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     // iOS - use the correct Square Point of Sale API format for iOS
     console.log('Opening Square POS for iOS (iPad/iPhone)...');
     
-    // For iOS, try multiple approaches
-    var success = false;
+    // For iOS, we need to use the Square Point of Sale API format
+    // This should connect to the Square terminal on the same WiFi network
+    var posUrl = 
+      "square-commerce-v1://payment/create?" +
+      "data=" + encodeURIComponent(JSON.stringify({
+        amount_money: {
+          amount: transactionTotal,
+          currency_code: currencyCode
+        },
+        callback_url: callbackUrl,
+        client_id: applicationId,
+        version: sdkVersion,
+        tender_types: ["CARD", "CASH"]
+      }));
     
-    // Method 1: Try the Square app URL scheme
+    console.log('iOS POS URL:', posUrl);
+    
+    // Try to open the Square app with the transaction data
     try {
-      console.log('Trying square:// URL scheme...');
-      window.location.href = "square://";
-      success = true;
+      window.location.href = posUrl;
+      
+      // If that doesn't work after a short delay, show instructions
+      setTimeout(function() {
+        alert('If Square terminal did not open, please:\n\n' +
+              '1. Ensure Square Point of Sale app is installed\n' +
+              '2. Make sure your device is on the same WiFi as the Square terminal\n' +
+              '3. Open Square Point of Sale app manually\n' +
+              '4. Enter amount: $' + (transactionTotal/100).toFixed(2));
+      }, 3000);
+      
     } catch (e) {
-      console.log('square:// failed:', e);
-    }
-    
-    // Method 2: If square:// didn't work, try opening the Square app store page
-    if (!success) {
-      try {
-        console.log('Trying to open Square app in App Store...');
-        window.open("https://apps.apple.com/app/square-point-of-sale/id335393788");
-        success = true;
-      } catch (e) {
-        console.log('App Store redirect failed:', e);
-      }
-    }
-    
-    // Method 3: Show manual instructions
-    if (!success) {
-      console.log('All methods failed, showing manual instructions...');
+      console.log('iOS Square POS failed:', e);
       alert('Please open the Square Point of Sale app manually and enter:\n\n' +
             'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
-            'Or install Square Point of Sale from the App Store if not already installed.');
-    } else {
-      // Show instructions after a short delay
-      setTimeout(function() {
-        alert('If Square app opened, please enter:\n\n' +
-              'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
-              'If Square app did not open, please install it from the App Store.');
-      }, 2000);
+            'Make sure you are connected to the same WiFi network as the Square terminal.');
     }
     
   } else {
