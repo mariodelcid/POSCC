@@ -26,6 +26,13 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     userAgent: navigator.userAgent
   });
   
+  console.log('Transaction details:', {
+    total: transactionTotal,
+    currency: currencyCode,
+    callbackUrl: callbackUrl,
+    applicationId: applicationId
+  });
+  
   if (isAndroid) {
     // Android intent URL - using the correct Square Point of Sale API format
     console.log('Opening Square POS for Android...');
@@ -50,25 +57,42 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     // iOS - use the correct Square Point of Sale API format for iOS
     console.log('Opening Square POS for iOS (iPad/iPhone)...');
     
-    // For iOS, we need to use a different approach
-    // Try to open the Square app directly first
+    // For iOS, try multiple approaches
+    var success = false;
+    
+    // Method 1: Try the Square app URL scheme
     try {
-      // Try the Square app URL scheme
+      console.log('Trying square:// URL scheme...');
       window.location.href = "square://";
-      
-      // If that doesn't work, show instructions
-      setTimeout(function() {
-        alert('Please open the Square Point of Sale app manually and enter:\n\n' +
-              'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
-              'Or ensure Square Point of Sale app is installed on your device.');
-      }, 1000);
-      
+      success = true;
     } catch (e) {
-      console.log('iOS Square POS failed, showing fallback...');
-      // Fallback: show instructions
+      console.log('square:// failed:', e);
+    }
+    
+    // Method 2: If square:// didn't work, try opening the Square app store page
+    if (!success) {
+      try {
+        console.log('Trying to open Square app in App Store...');
+        window.open("https://apps.apple.com/app/square-point-of-sale/id335393788");
+        success = true;
+      } catch (e) {
+        console.log('App Store redirect failed:', e);
+      }
+    }
+    
+    // Method 3: Show manual instructions
+    if (!success) {
+      console.log('All methods failed, showing manual instructions...');
       alert('Please open the Square Point of Sale app manually and enter:\n\n' +
             'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
-            'Or ensure Square Point of Sale app is installed on your device.');
+            'Or install Square Point of Sale from the App Store if not already installed.');
+    } else {
+      // Show instructions after a short delay
+      setTimeout(function() {
+        alert('If Square app opened, please enter:\n\n' +
+              'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
+              'If Square app did not open, please install it from the App Store.');
+      }, 2000);
     }
     
   } else {
