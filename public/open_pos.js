@@ -50,38 +50,25 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     // iOS - use the correct Square Point of Sale API format for iOS
     console.log('Opening Square POS for iOS (iPad/iPhone)...');
     
-    // Build the iOS URL scheme according to Square's official documentation
-    // iOS uses square-commerce-v1:// scheme instead of intent://
-    var posUrl = 
-      "square-commerce-v1://payment/create?" +
-      "data=" + encodeURIComponent(JSON.stringify({
-        amount_money: {
-          amount: transactionTotal,
-          currency_code: currencyCode
-        },
-        callback_url: callbackUrl,
-        client_id: applicationId,
-        version: sdkVersion,
-        tender_types: ["CARD", "CASH"]
-      }));
-    
-    console.log('iOS POS URL:', posUrl);
-    
-    // Try to open the Square app using iOS URL scheme
+    // For iOS, we need to use a different approach
+    // Try to open the Square app directly first
     try {
-      window.location.href = posUrl;
-    } catch (e) {
-      console.log('iOS Square POS failed, trying alternative method...');
-      // Alternative: try direct app opening
-      try {
-        window.location.href = "square://";
-      } catch (e2) {
-        console.log('Both methods failed, showing fallback...');
-        // Fallback: show instructions
+      // Try the Square app URL scheme
+      window.location.href = "square://";
+      
+      // If that doesn't work, show instructions
+      setTimeout(function() {
         alert('Please open the Square Point of Sale app manually and enter:\n\n' +
               'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
               'Or ensure Square Point of Sale app is installed on your device.');
-      }
+      }, 1000);
+      
+    } catch (e) {
+      console.log('iOS Square POS failed, showing fallback...');
+      // Fallback: show instructions
+      alert('Please open the Square Point of Sale app manually and enter:\n\n' +
+            'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
+            'Or ensure Square Point of Sale app is installed on your device.');
     }
     
   } else {
