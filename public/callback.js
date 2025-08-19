@@ -81,4 +81,16 @@ function printResponse() {
       data: transactionInfo
     }, '*');
   }
+  
+  // Auto-return to original tab after 3 seconds
+  setTimeout(function() {
+    // Try to close this window/tab and return to the original
+    if (window.opener) {
+      // If this was opened in a new window, close it
+      window.close();
+    } else {
+      // If this is a new tab, redirect back to the main app
+      window.location.href = window.location.origin;
+    }
+  }, 3000);
 }
