@@ -47,7 +47,7 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
       "S.com.squareup.pos.API_VERSION=" + sdkVersion + ";" +
       "i.com.squareup.pos.TOTAL_AMOUNT=" + transactionTotal + ";" +
       "S.com.squareup.pos.CURRENCY_CODE=" + currencyCode + ";" +
-      "S.com.squareup.pos.TENDER_TYPES=com.squareup.pos.TENDER_CARD,com.squareup.pos.TENDER_CASH;" +
+      "S.com.squareup.pos.TENDER_TYPES=com.squareup.pos.TENDER_CARD,com.squareup.pos.TENDER_CARD_ON_FILE,com.squareup.pos.TENDER_CASH,com.squareup.pos.TENDER_OTHER;" +
       "end";
     
     console.log('Android POS URL:', posUrl);
@@ -95,59 +95,44 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     }
     
   } else {
-    // For desktop browsers - provide desktop-friendly Square integration
-    console.log('Desktop browser detected - showing payment options');
+    // For desktop browsers - provide clear options since Square web dashboard doesn't work properly
+    console.log('Desktop browser detected - showing desktop payment options');
     
-    // Show a comprehensive message with multiple options
     var amount = (transactionTotal/100).toFixed(2);
-    var message = 'Desktop Payment Options:\n\n' +
+    
+    // Show clear options for desktop users
+    var message = 'Desktop Payment Options\n\n' +
                   'Transaction Amount: $' + amount + '\n\n' +
-                  'Choose your payment method:\n\n' +
-                  '1. SQUARE DASHBOARD (Manual Entry):\n' +
-                  '   • Opens Square web dashboard\n' +
-                  '   • You must enter amount manually\n' +
-                  '   • Best for card payments\n\n' +
-                  '2. CASH/COMPRAS (Record Only):\n' +
+                  'Since you\'re on desktop, choose:\n\n' +
+                  '1. USE MOBILE DEVICE (Recommended):\n' +
+                  '   • Switch to Android phone/tablet\n' +
+                  '   • Switch to iPad/iPhone\n' +
+                  '   • Amount will be pre-filled automatically\n\n' +
+                  '2. RECORD AS CASH PAYMENT:\n' +
                   '   • Use "Compras" button below\n' +
-                  '   • Record cash payment in POS\n' +
-                  '   • No Square processing needed\n\n' +
-                  '3. MOBILE DEVICE:\n' +
-                  '   • Use Android phone/tablet\n' +
-                  '   • Use iPad/iPhone\n' +
-                  '   • Automatic amount pre-fill\n\n' +
-                  'Which option would you like?';
+                  '   • Record payment in POS system\n' +
+                  '   • Process payment separately\n\n' +
+                  '3. MANUAL SQUARE ENTRY:\n' +
+                  '   • Open Square app on your phone\n' +
+                  '   • Enter amount: $' + amount + '\n' +
+                  '   • Return here to record sale\n\n' +
+                  'Which option would you prefer?';
     
     var choice = confirm(message);
     
     if (choice) {
-      // User chose Square Dashboard
-      var squareDashboardUrl = "https://squareup.com/dashboard/sales/transactions/new";
-      
-      try {
-        window.open(squareDashboardUrl, '_blank');
-        
-        // Show specific instructions
-        setTimeout(function() {
-          alert('Square Dashboard opened!\n\n' +
-                'IMPORTANT: You must manually enter the amount.\n\n' +
-                'Steps:\n' +
-                '1. In Square Dashboard, click "New Sale"\n' +
-                '2. Enter amount: $' + amount + '\n' +
-                '3. Process the payment\n' +
-                '4. Return here and use "Compras" button to record\n\n' +
-                'Note: Square web dashboard cannot pre-fill amounts.');
-        }, 1000);
-        
-      } catch (e) {
-        console.log('Failed to open Square Dashboard:', e);
-        alert('Please manually go to:\n' +
-              'https://squareup.com/dashboard/sales/transactions/new\n\n' +
-              'Enter amount: $' + amount);
-      }
+      // User chose manual Square entry
+      alert('Perfect! Here\'s what to do:\n\n' +
+            '1. Open Square Point of Sale app on your phone\n' +
+            '2. Enter amount: $' + amount + '\n' +
+            '3. Process the payment\n' +
+            '4. Return here and use "Compras" button to record the sale\n\n' +
+            'Note: Desktop cannot directly integrate with Square POS.');
     } else {
-      // User chose to use Compras/Cash option
-      alert('Perfect! Use the "Compras" button below to record this as a cash payment.\n\n' +
-            'Amount to record: $' + amount);
+      // User chose cash/Compras option
+      alert('Great choice! Use the "Compras" button below to record this as a cash payment.\n\n' +
+            'Amount to record: $' + amount + '\n\n' +
+            'You can process the actual payment separately through your Square terminal or app.');
     }
   }
 }
