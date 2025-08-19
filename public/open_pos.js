@@ -96,35 +96,58 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     
   } else {
     // For desktop browsers - provide desktop-friendly Square integration
-    console.log('Desktop browser detected - opening Square web interface');
+    console.log('Desktop browser detected - showing payment options');
     
-    // Open Square Dashboard for manual transaction entry
-    var squareDashboardUrl = "https://squareup.com/dashboard/sales/transactions/new";
+    // Show a comprehensive message with multiple options
+    var amount = (transactionTotal/100).toFixed(2);
+    var message = 'Desktop Payment Options:\n\n' +
+                  'Transaction Amount: $' + amount + '\n\n' +
+                  'Choose your payment method:\n\n' +
+                  '1. SQUARE DASHBOARD (Manual Entry):\n' +
+                  '   • Opens Square web dashboard\n' +
+                  '   • You must enter amount manually\n' +
+                  '   • Best for card payments\n\n' +
+                  '2. CASH/COMPRAS (Record Only):\n' +
+                  '   • Use "Compras" button below\n' +
+                  '   • Record cash payment in POS\n' +
+                  '   • No Square processing needed\n\n' +
+                  '3. MOBILE DEVICE:\n' +
+                  '   • Use Android phone/tablet\n' +
+                  '   • Use iPad/iPhone\n' +
+                  '   • Automatic amount pre-fill\n\n' +
+                  'Which option would you like?';
     
-    // Try to open Square Dashboard in a new tab
-    try {
-      window.open(squareDashboardUrl, '_blank');
+    var choice = confirm(message);
+    
+    if (choice) {
+      // User chose Square Dashboard
+      var squareDashboardUrl = "https://squareup.com/dashboard/sales/transactions/new";
       
-      // Show instructions for manual entry
-      setTimeout(function() {
-        alert('Square Dashboard opened in new tab.\n\n' +
-              'Please manually enter the transaction:\n' +
-              'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
-              'After completing the transaction in Square Dashboard:\n' +
-              '1. Return to this POS tab\n' +
-              '2. Click "Complete Order" again to record the sale\n' +
-              '3. Or use the "Compras" button to record manually');
-      }, 1000);
-      
-    } catch (e) {
-      console.log('Failed to open Square Dashboard:', e);
-      
-      // Fallback: show instructions
-      alert('Please open Square Dashboard manually:\n\n' +
-            '1. Go to: https://squareup.com/dashboard/sales/transactions/new\n' +
-            '2. Enter amount: $' + (transactionTotal/100).toFixed(2) + '\n' +
-            '3. Complete the transaction\n' +
-            '4. Return here and use "Compras" button to record the sale');
+      try {
+        window.open(squareDashboardUrl, '_blank');
+        
+        // Show specific instructions
+        setTimeout(function() {
+          alert('Square Dashboard opened!\n\n' +
+                'IMPORTANT: You must manually enter the amount.\n\n' +
+                'Steps:\n' +
+                '1. In Square Dashboard, click "New Sale"\n' +
+                '2. Enter amount: $' + amount + '\n' +
+                '3. Process the payment\n' +
+                '4. Return here and use "Compras" button to record\n\n' +
+                'Note: Square web dashboard cannot pre-fill amounts.');
+        }, 1000);
+        
+      } catch (e) {
+        console.log('Failed to open Square Dashboard:', e);
+        alert('Please manually go to:\n' +
+              'https://squareup.com/dashboard/sales/transactions/new\n\n' +
+              'Enter amount: $' + amount);
+      }
+    } else {
+      // User chose to use Compras/Cash option
+      alert('Perfect! Use the "Compras" button below to record this as a cash payment.\n\n' +
+            'Amount to record: $' + amount);
     }
   }
 }
