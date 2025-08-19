@@ -95,19 +95,37 @@ function openSquarePOS(transactionTotal, currencyCode = "USD") {
     }
     
   } else {
-    // For desktop browsers - Square POS requires mobile devices
-    console.log('Desktop browser detected - Square POS requires mobile device');
+    // For desktop browsers - provide desktop-friendly Square integration
+    console.log('Desktop browser detected - opening Square web interface');
     
-    // Show clear instructions about Square POS requirements
-    alert('Square Point of Sale requires a mobile device with the Square app installed.\n\n' +
-          'For the best experience, please use:\n' +
-          '• Android device with Square Point of Sale app\n' +
-          '• iPad/iPhone with Square Point of Sale app\n\n' +
-          'Transaction Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
-          'Alternatively, you can:\n' +
-          '• Install Square Point of Sale on your computer\n' +
-          '• Use Square Dashboard for manual entry\n' +
-          '• Contact support for assistance');
+    // Open Square Dashboard for manual transaction entry
+    var squareDashboardUrl = "https://squareup.com/dashboard/sales/transactions/new";
+    
+    // Try to open Square Dashboard in a new tab
+    try {
+      window.open(squareDashboardUrl, '_blank');
+      
+      // Show instructions for manual entry
+      setTimeout(function() {
+        alert('Square Dashboard opened in new tab.\n\n' +
+              'Please manually enter the transaction:\n' +
+              'Amount: $' + (transactionTotal/100).toFixed(2) + '\n\n' +
+              'After completing the transaction in Square Dashboard:\n' +
+              '1. Return to this POS tab\n' +
+              '2. Click "Complete Order" again to record the sale\n' +
+              '3. Or use the "Compras" button to record manually');
+      }, 1000);
+      
+    } catch (e) {
+      console.log('Failed to open Square Dashboard:', e);
+      
+      // Fallback: show instructions
+      alert('Please open Square Dashboard manually:\n\n' +
+            '1. Go to: https://squareup.com/dashboard/sales/transactions/new\n' +
+            '2. Enter amount: $' + (transactionTotal/100).toFixed(2) + '\n' +
+            '3. Complete the transaction\n' +
+            '4. Return here and use "Compras" button to record the sale');
+    }
   }
 }
 
